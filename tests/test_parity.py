@@ -114,9 +114,10 @@ def test_keyedvectors_extended_queries(vectors):
     )
 
 
-def test_mojo_row_normalization_matches_numpy():
+@pytest.mark.parametrize("rows", [257, 31_497])
+def test_mojo_row_normalization_matches_numpy(rows):
     rng = np.random.default_rng(5)
-    matrix = rng.normal(size=(257, 31)).astype(np.float32)
+    matrix = rng.normal(size=(rows, 127)).astype(np.float32)
     matrix[17] = 0
     actual = normalize_rows(matrix)
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
@@ -158,7 +159,7 @@ def test_invalid_kernel_parameters_fail_before_ffi():
         Word2Vec(vector_size=4, compute_loss=True)
 
 
-@pytest.mark.parametrize("rows", [7, 1601])
+@pytest.mark.parametrize("rows", [7, 31_497])
 def test_simd_tail_row_scoring_across_parallel_threshold(rows):
     rng = np.random.default_rng(15)
     matrix = rng.normal(size=(rows, 127)).astype(np.float32)

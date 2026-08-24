@@ -9,6 +9,7 @@ import numpy as np
 
 from .._lib import dot_rows, f32, normalize_rows
 from ..matutils import sparse2full
+from ..models.keyedvectors import _top_order
 
 
 def _is_bow(value):
@@ -86,7 +87,7 @@ class MatrixSimilarity:
         similarities = self.get_similarities(query)
         if self.num_best is None:
             return similarities
-        order = np.argsort(-similarities, kind="stable")[: self.num_best]
+        order = _top_order(similarities, self.num_best)
         return [(int(index), float(similarities[index])) for index in order]
 
     def __iter__(self):

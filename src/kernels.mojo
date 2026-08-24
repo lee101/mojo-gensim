@@ -1,15 +1,17 @@
 """Compute kernels for embedding training, similarity search, and sparse LSI."""
 
+from max.algorithm import parallelize
 from std.math import exp, sqrt
+from std.runtime import initialize_runtime
 from std.sys.info import simd_width_of
 
 comptime W = simd_width_of[DType.float32]()
 comptime FPtr = UnsafePointer[Float32, AnyOrigin[mut=True]]
 comptime DPtr = UnsafePointer[Float64, AnyOrigin[mut=True]]
 comptime IPtr = UnsafePointer[Int64, AnyOrigin[mut=True]]
-comptime PARALLEL_WORK = 200_000
-comptime WORKERS = 16
-comptime PARALLEL_TASKS = WORKERS * 4
+comptime PARALLEL_WORK = 4_000_000
+comptime WORKERS = 4
+comptime PARALLEL_TASKS = WORKERS
 
 
 def fp(addr: Int) -> FPtr:
@@ -26,12 +28,21 @@ def ip(addr: Int) -> IPtr:
 
 @always_inline
 def dot(a: FPtr, b: FPtr, n: Int) -> Float32:
-    var vacc = SIMD[DType.float32, W](0.0)
+    var vacc0 = SIMD[DType.float32, W](0.0)
+    var vacc1 = SIMD[DType.float32, W](0.0)
+    var vacc2 = SIMD[DType.float32, W](0.0)
+    var vacc3 = SIMD[DType.float32, W](0.0)
     var i = 0
+    while i + 4 * W <= n:
+        vacc0 += a.load[width=W](i) * b.load[width=W](i)
+        vacc1 += a.load[width=W](i + W) * b.load[width=W](i + W)
+        vacc2 += a.load[width=W](i + 2 * W) * b.load[width=W](i + 2 * W)
+        vacc3 += a.load[width=W](i + 3 * W) * b.load[width=W](i + 3 * W)
+        i += 4 * W
     while i + W <= n:
-        vacc += a.load[width=W](i) * b.load[width=W](i)
+        vacc0 += a.load[width=W](i) * b.load[width=W](i)
         i += W
-    var total = vacc.reduce_add()
+    var total = (vacc0 + vacc1 + vacc2 + vacc3).reduce_add()
     while i < n:
         total += a[i] * b[i]
         i += 1
@@ -81,8 +92,8 @@ def mg_normalize_rows(
             normalize_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        for task in range(PARALLEL_TASKS):
-            normalize_chunk(task)
+        initialize_runtime()
+        parallelize(normalize_chunk, PARALLEL_TASKS, WORKERS)
     else:
         for row in range(rows):
             normalize_row(row)
@@ -110,8 +121,8 @@ def mg_dot_rows(
             score_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        for task in range(PARALLEL_TASKS):
-            score_chunk(task)
+        initialize_runtime()
+        parallelize(score_chunk, PARALLEL_TASKS, WORKERS)
     else:
         for row in range(rows):
             score_row(row)
@@ -145,8 +156,8 @@ def mg_cosine_rows(
             score_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        for task in range(PARALLEL_TASKS):
-            score_chunk(task)
+        initialize_runtime()
+        parallelize(score_chunk, PARALLEL_TASKS, WORKERS)
     else:
         for row in range(rows):
             score_row(row)

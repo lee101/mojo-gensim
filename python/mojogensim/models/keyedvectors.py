@@ -17,10 +17,9 @@ def _top_order(scores, count):
         return np.argsort(-scores, kind="stable")
     partition = np.argpartition(-scores, count - 1)[:count]
     cutoff = np.min(scores[partition])
-    better = np.flatnonzero(scores > cutoff)
-    equal = np.flatnonzero(scores == cutoff)[: count - len(better)]
-    candidates = np.concatenate((better, equal))
-    return candidates[np.lexsort((candidates, -scores[candidates]))]
+    candidates = np.flatnonzero(scores >= cutoff)
+    order = np.lexsort((candidates, -scores[candidates]))
+    return candidates[order[:count]]
 
 
 class KeyedVectors:

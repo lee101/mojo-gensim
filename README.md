@@ -115,18 +115,21 @@ Linux x86-64, Python 3.13.14, NumPy 2.5.1, and gensim 4.4.0:
 
 | case | mojo-gensim | gensim | result |
 | --- | ---: | ---: | ---: |
-| KeyedVectors.most_similar (50k x 128) | 25.1 ms | 4.0 ms | 6.34x slower |
-| MatrixSimilarity query (40k x 96) | 15.7 ms | 4.0 ms | 3.90x slower |
-| Word2Vec SGNS fit (4k x 16, 2 epochs) | 513.2 ms | 818.0 ms | 1.59x faster |
-| LSI fit (4k docs, 2k terms, 40 topics) | 1.20 s | 1.42 s | 1.18x faster |
+| KeyedVectors.most_similar (50k x 128) | 4.9 ms | 2.8 ms | 1.76x slower |
+| MatrixSimilarity query (40k x 96) | 2.7 ms | 3.0 ms | 1.09x faster |
+| Word2Vec SGNS fit (4k x 16, 2 epochs) | 380.9 ms | 635.3 ms | 1.67x faster |
+| LSI fit (4k docs, 2k terms, 40 topics) | 670.1 ms | 690.5 ms | 1.03x faster |
 
-The LSI win comes from doing repeated CSR-by-dense products in compiled Mojo
-and reducing the final dense SVD to the randomized sketch. Cosine queries fuse
-row scaling into SIMD scoring, cache row norms, and use thresholded parallel
-chunks. SGNS builds dynamic-window pairs directly in NumPy-owned buffers,
-samples negatives through an alias table, and applies vector updates with SIMD.
+LSI does repeated CSR-by-dense products in compiled Mojo and reduces the final
+dense SVD to the randomized sketch. Cosine queries fuse row scaling into
+four-accumulator SIMD scoring, cache row norms, use thresholded four-worker
+chunks, and select top results without fully sorting every score. SGNS builds
+dynamic-window pairs directly in NumPy-owned buffers, samples negatives through
+an alias table, and applies vector updates with SIMD.
 
-No GPU path is included or claimed.
+No GPU path is included. The hot kernels are memory-bound: cosine scoring is
+about 0.5 flop/byte, and SGNS and CSR products remain well below the 2 flop/byte
+GPU threshold after update and result traffic are counted.
 
 Run the same benchmark on another machine with:
 
