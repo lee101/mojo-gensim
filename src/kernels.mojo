@@ -1,6 +1,5 @@
 """Compute kernels for embedding training, similarity search, and sparse LSI."""
 
-from std.algorithm import parallelize
 from std.math import exp, sqrt
 from std.sys.info import simd_width_of
 
@@ -82,7 +81,8 @@ def mg_normalize_rows(
             normalize_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        parallelize(normalize_chunk, PARALLEL_TASKS, WORKERS)
+        for task in range(PARALLEL_TASKS):
+            normalize_chunk(task)
     else:
         for row in range(rows):
             normalize_row(row)
@@ -110,7 +110,8 @@ def mg_dot_rows(
             score_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        parallelize(score_chunk, PARALLEL_TASKS, WORKERS)
+        for task in range(PARALLEL_TASKS):
+            score_chunk(task)
     else:
         for row in range(rows):
             score_row(row)
@@ -144,7 +145,8 @@ def mg_cosine_rows(
             score_row(row)
 
     if rows * cols >= PARALLEL_WORK:
-        parallelize(score_chunk, PARALLEL_TASKS, WORKERS)
+        for task in range(PARALLEL_TASKS):
+            score_chunk(task)
     else:
         for row in range(rows):
             score_row(row)
@@ -396,7 +398,8 @@ def mg_csr_matmul(
                 result[result_base + col] += value * right[source * width + col]
 
     if rows * width >= 4096:
-        parallelize(multiply_row, rows, WORKERS)
+        for row in range(rows):
+            multiply_row(row)
     else:
         for row in range(rows):
             multiply_row(row)
